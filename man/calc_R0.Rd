@@ -8,7 +8,7 @@ calc_R0(lt, sxj = NULL, fxj = NULL)
 }
 \arguments{
 \item{lt}{A \code{life_table} object returned by
-\code{\link{read_life_table}}.}
+\code{\link{lifeTable_read}}.}
 
 \item{sxj}{Optional; the result of \code{\link{calc_sxj}}.}
 
@@ -26,8 +26,8 @@ average individual of the cohort over its whole life,
 and \code{R0 < 1} decline.
 }
 \examples{
-f <- system.file("extdata", "Example.csv", package = "insectecol")
-lt <- read_life_table(f)
+f <- system.file("extdata", "lifetable_example.csv", package = "insectecol")
+lt <- lifeTable_read(f)
 calc_R0(lt)
 }
 \references{

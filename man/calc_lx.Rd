@@ -8,7 +8,7 @@ calc_lx(lt, sxj = NULL)
 }
 \arguments{
 \item{lt}{A \code{life_table} object returned by
-\code{\link{read_life_table}}.}
+\code{\link{lifeTable_read}}.}
 
 \item{sxj}{Optional; the result of \code{\link{calc_sxj}}. Supplying it
 avoids recomputing the age-stage survival rates.}
@@ -24,8 +24,8 @@ obtained by summing the age-stage survival rates over all stages:
 \code{l_x = sum over j of s_xj}.
 }
 \examples{
-f <- system.file("extdata", "Example.csv", package = "insectecol")
-lt <- read_life_table(f)
+f <- system.file("extdata", "lifetable_example.csv", package = "insectecol")
+lt <- lifeTable_read(f)
 head(calc_lx(lt))
 }
 \references{

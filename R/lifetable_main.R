@@ -35,7 +35,7 @@ default_stage_names <- function(k) {
 #' Build a Life Table Object from User-Supplied Columns
 #'
 #' Assembles a \code{life_table} object (the same structure returned by
-#' \code{\link{read_life_table}}) from individual column vectors already
+#' \code{\link{lifeTable_read}}) from individual column vectors already
 #' loaded into the R session, e.g. after
 #' \code{data <- read.csv("XXX.csv")}. This is the entry point for
 #' analysing data that do not come from a package-conform csv file.
@@ -60,21 +60,21 @@ default_stage_names <- function(k) {
 #' @param file_name Character; data set name (default plot title, base
 #'   name of the exported xlsx).
 #' @param check Logical; validate the data with
-#'   \code{\link{check_life_table}} (default \code{TRUE}).
+#'   \code{\link{lifeTable_check}} (default \code{TRUE}).
 #'
 #' @return A \code{life_table} object, ready for all \code{calc_*},
-#'   \code{plot_sxj} and \code{save_results} functions.
+#'   \code{lifeTable_plot} and \code{lifeTable_export} functions.
 #' @export
 #' @examples
 #' ## The raw example data shipped with the package
-#' f <- system.file("extdata", "Example.csv", package = "insectecol")
+#' f <- system.file("extdata", "lifetable_example.csv", package = "insectecol")
 #' ## ^^ change to the actual package name
 #' d <- read.csv(f)
 #'
 #' ## 1) Standard build: column-range subset of stage columns + adult days
 #' ##    + sex + oviposition columns (positional indexing is robust to
 #' ##    the space-containing headers like "1st instar")
-#' lt1 <- build_life_table(d[2:8], adult_days = d$Adult, sex = d$gender,
+#' lt1 <- lifeTable_build(d[2:8], adult_days = d$Adult, sex = d$gender,
 #'                         oviposition = d[, 11:17], file_name = "Example")
 #' names(lt1)     # components of the life_table object
 #' head(lt1$df)   # wide table: ID + stages + Adult + gender + oviposition
@@ -82,10 +82,10 @@ default_stage_names <- function(k) {
 #' ## 2) Survival analysis only: omit oviposition entirely. Legal since
 #' ##    the data checker skips the oviposition check when the table ends
 #' ##    at the sex column (use fecundity = FALSE in the analysis).
-#' lt2 <- build_life_table(d[2:8], adult_days = d$Adult, sex = d$gender)
+#' lt2 <- lifeTable_build(d[2:8], adult_days = d$Adult, sex = d$gender)
 #'
 #' ## 3) Named list: the list names become the stage names
-#' lt3 <- build_life_table(list(Egg = d[[2]], "1st instar" = d[[3]],
+#' lt3 <- lifeTable_build(list(Egg = d[[2]], "1st instar" = d[[3]],
 #'                              "2nd instar" = d[[4]], "3rd instar" = d[[5]],
 #'                              "4th instar" = d[[6]], Prepupa = d[[7]],
 #'                              Pupa = d[[8]]),
@@ -95,7 +95,7 @@ default_stage_names <- function(k) {
 #' ## 4) Friendly stage names via stage_names: exactly one per IMMATURE
 #' ##    stage. The adult labels "Female" and "Male" are appended
 #' ##    automatically and must NOT be included.
-#' lt4 <- build_life_table(d[2:8], adult_days = d$Adult, sex = d$gender,
+#' lt4 <- lifeTable_build(d[2:8], adult_days = d$Adult, sex = d$gender,
 #'                         oviposition = d[, 11:17],
 #'                         stage_names = c("Egg", "L1", "L2", "L3", "L4",
 #'                                         "Prepupa", "Pupa"))
@@ -103,7 +103,7 @@ default_stage_names <- function(k) {
 #' ## 5) A common mistake, handled gracefully: stage_names wrongly
 #' ##    including the adult labels. The extra two entries are dropped
 #' ##    with a warning (only a WARNING - the build still succeeds).
-#' lt5 <- build_life_table(d[2:8], adult_days = d$Adult, sex = d$gender,
+#' lt5 <- lifeTable_build(d[2:8], adult_days = d$Adult, sex = d$gender,
 #'                         oviposition = d[, 11:17],
 #'                         stage_names = c("Egg", "L1", "L2", "L3", "L4",
 #'                                         "Prepupa", "Pupa",
@@ -111,9 +111,9 @@ default_stage_names <- function(k) {
 #'
 #' ## 6) Skip the consistency check (e.g. oviposition columns
 #' ##    deliberately shorter than the adult life span)
-#' lt6 <- build_life_table(d[2:8], adult_days = d$Adult, sex = d$gender,
+#' lt6 <- lifeTable_build(d[2:8], adult_days = d$Adult, sex = d$gender,
 #'                         oviposition = d[, 11:17], check = FALSE)
-build_life_table <- function(stages, adult_days, sex, oviposition = NULL,
+lifeTable_build <- function(stages, adult_days, sex, oviposition = NULL,
                              stage_names = NULL, file_name = "life_table",
                              check = TRUE) {
   ## ---- normalise stages into a list of numeric columns ----
@@ -187,7 +187,7 @@ build_life_table <- function(stages, adult_days, sex, oviposition = NULL,
   lt <- list(data = df, file_name = file_name, n = n, n_1 = n + 1, n_2 = n - 2,
              header = header, encoding = "user input", path = file_name)
   class(lt) <- "life_table"
-  if (check) check_life_table(lt)
+  if (check) lifeTable_check(lt)
   lt
 }
 
@@ -199,24 +199,43 @@ build_life_table <- function(stages, adult_days, sex, oviposition = NULL,
 #' data frame (e.g. after \code{data <- read.csv("XXX.csv")}, or accepts
 #' a ready \code{life_table} object), (2) computes the life table
 #' parameters and (3) optionally draws the age-stage survival curves
-#' with customisable title, axis titles and legend labels. Nothing is
-#' written to disk; export is handled separately by
-#' \code{\link{save_results}}.
+#' with customisable title, axis titles and legend labels, optionally
+#' written to disk as png when \code{plot_file} is supplied. Tabular
+#' export is handled separately by \code{\link{lifeTable_export}}.
 #'
 #' @param lt Optional; an existing \code{life_table} object (from
-#'   \code{\link{read_life_table}} or \code{\link{build_life_table}}).
+#'   \code{\link{lifeTable_read}} or \code{\link{lifeTable_build}}).
 #'   If \code{NULL} (default), the object is built from \code{stages},
 #'   \code{adult_days}, \code{sex} and \code{oviposition}.
 #' @param stages,adult_days,sex,oviposition,stage_names,file_name,check
-#'   Passed to \code{\link{build_life_table}} (ignored when \code{lt} is
+#'   Passed to \code{\link{lifeTable_build}} (ignored when \code{lt} is
 #'   supplied).
 #' @param fecundity Logical; whether to compute the reproduction-related
 #'   parameters (F, F_xj, m_x, R0, r, lambda, T). \code{FALSE} skips them
 #'   entirely - \code{oviposition} is then not required at all and may
 #'   be left \code{NULL}.
+#' @param bootstrap Logical; whether to estimate the standard errors and
+#'   percentile confidence intervals of all scalar parameters with the
+#'   bootstrap technique of TWOSEX-MSChart via
+#'   \code{\link{lifeTable_bootstrap}} (default \code{FALSE}). The
+#'   result is attached as \code{results$boot} and is exported by
+#'   \code{\link{lifeTable_export}} as an extra worksheet.
+#' @param B Integer; number of bootstrap replicates (only used when
+#'   \code{bootstrap = TRUE}). The TWOSEX-MSChart standard is
+#'   \code{100000} (the default).
+#' @param seed Integer; seed of the bootstrap random number generator
+#'   (only used when \code{bootstrap = TRUE}); \code{NULL} uses the
+#'   current R session state.
 #' @param plot Logical; whether to draw the age-stage survival curves
 #'   (default \code{FALSE}). The returned ggplot object can be printed,
-#'   customised further or passed to \code{\link{save_results}}.
+#'   customised further or passed to \code{\link{lifeTable_export}}.
+#' @param plot_file Optional png path: when supplied together with
+#'   \code{plot = TRUE} the figure is written to this file (via
+#'   \code{\link[ggplot2]{ggsave}}); when \code{NULL} the plot is only
+#'   returned.
+#' @param plot_width,plot_height,plot_units,plot_res Physical size and
+#'   resolution of the exported png (only used when \code{plot_file} is
+#'   supplied); defaults 12 x 8 cm at 300 dpi.
 #' @param title Character; plot title. \code{NULL} = \code{file_name}.
 #' @param x_title,y_title Character; axis titles. Defaults
 #'   \code{"Age(days)"} and \code{"Age-Stage Survival Rate(Sxj)"}.
@@ -230,18 +249,22 @@ build_life_table <- function(stages, adult_days, sex, oviposition = NULL,
 #'
 #' @return A list with components \code{lt} (the \code{life_table}
 #'   object), \code{results} (the list returned by
-#'   \code{\link{lifeTable_calculate_all}}) and \code{plot} (the ggplot
-#'   object when \code{plot = TRUE}, otherwise \code{NULL}).
+#'   \code{\link{lifeTable_calculate_all}}; additionally containing
+#'   \code{boot}, the \code{\link{lifeTable_bootstrap}} result, when
+#'   \code{bootstrap = TRUE}), \code{plot} (the ggplot object when
+#'   \code{plot = TRUE}, otherwise \code{NULL}) and \code{plot_file}
+#'   (the png path when \code{plot_file} was supplied, otherwise
+#'   \code{NULL}).
 #'
-#' @seealso \code{\link{build_life_table}},
-#'   \code{\link{lifeTable_calculate_all}}, \code{\link{plot_sxj}},
-#'   \code{\link{save_results}}
+#' @seealso \code{\link{lifeTable_build}},
+#'   \code{\link{lifeTable_calculate_all}}, \code{\link{lifeTable_bootstrap}},
+#'   \code{\link{lifeTable_plot}}, \code{\link{lifeTable_export}}
 #' @export
 #' @examples
 #' ## The example raw data shipped with the package (the same layout as
 #' ## the csv template: ID + immature stage columns + Adult + gender +
 #' ## one column per oviposition day of the females)
-#' f <- system.file("extdata", "Example.csv", package = "insectecol")
+#' f <- system.file("extdata", "lifetable_example.csv", package = "insectecol")
 #' ## ^^ change "lifeTable" to the actual package name
 #' d  <- read.csv(f)
 #' names(d)   # with check.names = TRUE (default) the names become
@@ -254,7 +277,15 @@ build_life_table <- function(stages, adult_days, sex, oviposition = NULL,
 #'                           sex = d$gender, oviposition = d[, 11:17],
 #'                           file_name = "Example - way 1")
 #' out1$results$N          # number of individuals
-#' out1$results$Summary   # all life table parameters
+#' out1$results$R0         # net reproductive rate
+#'
+#' ## --- with bootstrap standard errors (small B for a fast example;
+#' ## use the default B = 100000 for publications)
+#' out1b <- lifeTable_analyze(stages = d[2:8], adult_days = d$Adult,
+#'                            sex = d$gender, oviposition = d[, 11:17],
+#'                            file_name = "Example - way 1",
+#'                            bootstrap = TRUE, B = 2000, seed = 1)
+#' out1b$results$boot$summary
 #'
 #' ## --- way 2: pass a named list of single columns
 #' ## (the list names become the stage names in plots and results)
@@ -285,23 +316,38 @@ build_life_table <- function(stages, adult_days, sex, oviposition = NULL,
 lifeTable_analyze <- function(lt = NULL, stages = NULL, adult_days = NULL,
                               sex = NULL, oviposition = NULL, stage_names = NULL,
                               file_name = "life_table", check = TRUE,
-                              fecundity = TRUE, plot = FALSE, title = NULL,
+                              fecundity = TRUE, bootstrap = FALSE,
+                              B = 100000, seed = NULL, plot = FALSE, title = NULL,
                               x_title = "Age(days)",
                               y_title = "Age-Stage Survival Rate(Sxj)",
-                              legend_labels = NULL, dpi = 300) {
+                              legend_labels = NULL, dpi = 300,
+                              plot_file = NULL, plot_width = 12,
+                              plot_height = 8, plot_units = "cm",
+                              plot_res = 300) {
   ## ---- 1) build the life_table object (or use the supplied one) ----
   if (is.null(lt))
-    lt <- build_life_table(stages, adult_days, sex, oviposition,
+    lt <- lifeTable_build(stages, adult_days, sex, oviposition,
                            stage_names = stage_names, file_name = file_name,
                            check = check)
 
   ## ---- 2) compute all parameters (fecundity-related skippable) ----
   results <- lifeTable_calculate_all(lt, fecundity = fecundity)
 
-  ## ---- 3) optional plot (no device interaction, no file output) ----
-  p <- if (plot) plot_sxj(lt, results$sxj, title = title, x_title = x_title,
+  ## ---- 3) optional bootstrap standard errors ----
+  if (bootstrap) results$boot <- lifeTable_bootstrap(lt, B = B, seed = seed)
+
+  ## ---- 4) optional plot (current device or exported as png) ----
+  p <- if (plot) lifeTable_plot(lt, results$sxj, title = title, x_title = x_title,
                           y_title = y_title, legend_labels = legend_labels,
                           dpi = dpi) else NULL
+  plot_file_out <- NULL
+  if (plot && !is.null(p) && !is.null(plot_file)) {
+    ggplot2::ggsave(plot_file, plot = p, width = plot_width,
+                    height = plot_height, units = plot_units,
+                    dpi = plot_res, bg = "white")
+    plot_file_out <- plot_file
+    message("Plot saved to: ", normalizePath(plot_file))
+  }
 
-  list(lt = lt, results = results, plot = p)
+  list(lt = lt, results = results, plot = p, plot_file = plot_file_out)
 }

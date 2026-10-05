@@ -13,6 +13,11 @@ lc50_analyze(
   lc = 0.5,
   method = "traditional",
   plot = FALSE,
+  plot_file = NULL,
+  plot_width = 12,
+  plot_height = 8,
+  plot_units = "cm",
+  plot_res = 300,
   plot_method = NULL,
   font = "TNM",
   unit = NULL,
@@ -32,9 +37,9 @@ lc50_analyze(
 \arguments{
 \item{d}{Optional; the bioassay data: a data frame with the columns
 \code{Concentration}, \code{Tested} and \code{Dead} (headers are
-matched loosely, as in \code{\link{read_lc50}}, so a header like
+matched loosely, as in \code{\link{lc50_read}}, so a header like
 \code{"Concentration (mg/L)"} works), a named list of such data
-frames (e.g. the return value of \code{\link{read_lc50}}), or
+frames (e.g. the return value of \code{\link{lc50_read}}), or
 \code{NULL} to build the data from the three vectors below.}
 
 \item{concentration, tested, dead}{Numeric vectors; the concentration,
@@ -56,22 +61,34 @@ e.g. 0.9 = LC90), passed to \code{\link{lc50_calculate}}.}
 
 \item{plot}{Logical; whether to build the regression plot(s)
 (default \code{FALSE}). The ggplot objects are only returned -
-not printed, not saved.}
+not printed, not saved unless \code{plot_file} is supplied.}
+
+\item{plot_file}{Optional png path: when supplied together with
+\code{plot = TRUE} the figure(s) are written as png via
+\code{\link{lc50_export_plot}} - one data set gives exactly this
+file, several data sets write \code{LC50_<name>.png} files into
+this folder. When \code{NULL} nothing is written.}
+
+\item{plot_width, plot_height, plot_units, plot_res}{Physical size and
+resolution of the exported png (only used when \code{plot_file} is
+supplied); defaults 12 x 8 cm at 300 dpi.}
 
 \item{plot_method}{Character; which of the computed methods to plot
 (default \code{NULL} = the first method that succeeded).
 Ignored when \code{plot = FALSE}.}
 
 \item{font, unit, shape, ci, ci_level, error_bar, move_thres, lc_ci, lc_p, lc_lab_gap, lc_lab_gap_right, lc_lab_dy, lc_lab_lh}{Plot settings, passed to the internal plot engine exactly as in
-\code{\link{plot_lc50}} (\code{unit = NULL} means \code{"mg/L"},
+\code{\link{lc50_plot}} (\code{unit = NULL} means \code{"mg/L"},
 \code{unit = ""} shows no unit).}
 }
 \value{
 A list with elements \code{data} (the standardised data
   list, one data frame per data set), \code{results} (the list
   returned by \code{\link{lc50_calculate}}: \code{results},
-  \code{summary_df}, \code{lc}) and \code{plot} (a named list of
-  ggplot objects when \code{plot = TRUE}, otherwise \code{NULL}).
+  \code{summary_df}, \code{lc}), \code{plot} (a named list of
+  ggplot objects when \code{plot = TRUE}, otherwise \code{NULL})
+  and \code{plot_file} (the written path(s) when \code{plot_file}
+  was supplied, otherwise \code{NULL}).
 }
 \description{
 Non-interactive, fully parameter-driven entry point for the LC
@@ -79,15 +96,14 @@ Non-interactive, fully parameter-driven entry point for the LC
 data list from a data frame, a named list of data frames or three
 parallel vectors, (2) computes the LC estimates with the selected
 method(s) via \code{\link{lc50_calculate}} and (3) optionally builds
-the regression plot(s) in the style of \code{\link{plot_lc50}}.
-Nothing is written to disk and no dialog is opened; export is
-handled separately by \code{\link{save_lc50}} /
-\code{\link{save_lc50_plot}}.
+the regression plot(s) in the style of \code{\link{lc50_plot}},
+optionally written to disk as png when \code{plot_file} is supplied.
+Tabular export is handled separately by \code{\link{lc50_export}}.
 }
 \examples{
 ## way 1: data frame straight from the package example csv
-f <- system.file("extdata", "bioassay.csv", package = "insectecol")
-out1 <- lc50_analyze(read_lc50(f), method = "probit")
+f <- system.file("extdata", "lc50_example.csv", package = "insectecol")
+out1 <- lc50_analyze(lc50_read(f), method = "probit")
 out1$results$summary_df
 
 ## way 2: three parallel vectors, no csv involved; all three methods
@@ -106,6 +122,7 @@ out3 <- lc50_analyze(concentration = conc, tested = n, dead = dead,
 out3$plot$trial1        # ggplot object: print(), customise or export
 }
 \seealso{
-\code{\link{read_lc50}}, \code{\link{lc50_calculate}},
-  \code{\link{plot_lc50}}, \code{\link{save_lc50}}
+\code{\link{lc50_read}}, \code{\link{lc50_calculate}},
+  \code{\link{lc50_plot}}, \code{\link{lc50_export}},
+  \code{\link{lc50_export_plot}}
 }

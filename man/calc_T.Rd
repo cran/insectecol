@@ -8,7 +8,7 @@ calc_T(lt, R0 = NULL, r = NULL)
 }
 \arguments{
 \item{lt}{A \code{life_table} object returned by
-\code{\link{read_life_table}}.}
+\code{\link{lifeTable_read}}.}
 
 \item{R0}{Optional; the result of \code{\link{calc_R0}}.}
 
@@ -24,8 +24,8 @@ time needed for the population to grow to an \code{R0}-fold of its
 current size when increasing at the constant rate \code{r}.
 }
 \examples{
-f <- system.file("extdata", "Example.csv", package = "insectecol")
-lt <- read_life_table(f)
+f <- system.file("extdata", "lifetable_example.csv", package = "insectecol")
+lt <- lifeTable_read(f)
 calc_T(lt)
 }
 \references{

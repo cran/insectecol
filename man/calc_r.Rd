@@ -8,7 +8,7 @@ calc_r(lt, lx = NULL, mx = NULL)
 }
 \arguments{
 \item{lt}{A \code{life_table} object returned by
-\code{\link{read_life_table}}.}
+\code{\link{lifeTable_read}}.}
 
 \item{lx}{Optional; the result of \code{\link{calc_lx}}.}
 
@@ -28,8 +28,8 @@ bisection method on the interval [0, 1] (tolerance 1e-6, at most 100
 iterations).
 }
 \examples{
-f <- system.file("extdata", "Example.csv", package = "insectecol")
-lt <- read_life_table(f)
+f <- system.file("extdata", "lifetable_example.csv", package = "insectecol")
+lt <- lifeTable_read(f)
 calc_r(lt)
 }
 \references{

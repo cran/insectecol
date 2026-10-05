@@ -6,7 +6,7 @@
 #' parameters (R0, r, lambda, T).
 #'
 #' @param lt A \code{life_table} object returned by
-#'   \code{\link{read_life_table}}.
+#'   \code{\link{lifeTable_read}}.
 #' @param fecundity Logical; whether to compute the reproduction-related
 #'   parameters (F, F_xj, m_x, R0, r, lambda, T). \code{FALSE} skips them
 #'   entirely; no oviposition data are then required.
@@ -26,8 +26,8 @@
 #'   \code{\link{lifeTable_calculate}} for the batch workflow.
 #' @export
 #' @examples
-#' f <- system.file("extdata", "Example.csv", package = "insectecol")
-#' lt <- read_life_table(f)
+#' f <- system.file("extdata", "lifetable_example.csv", package = "insectecol")
+#' lt <- lifeTable_read(f)
 #' results <- lifeTable_calculate_all(lt)
 #' results$R0
 #' lifeTable_calculate_all(lt, fecundity = FALSE)$N
@@ -54,7 +54,7 @@ lifeTable_calculate_all <- function(lt, fecundity = TRUE) {
 #'
 #' Runs the complete workflow (reading, validation, calculation, plotting
 #' and exporting) for every csv file in a folder, or for a single csv
-#' file. Each data set gets its own Excel workbook; in addition an
+#' file. Each data set gets its own 'Excel' workbook; in addition an
 #' \code{all.xlsx} with the summary of all files is created. Files that
 #' fail (e.g. because of data errors) are skipped and reported at the end
 #' without interrupting the remaining files.
@@ -70,19 +70,36 @@ lifeTable_calculate_all <- function(lt, fecundity = TRUE) {
 #' @param keep_tiff Logical; whether to keep the standalone tiff files
 #'   (default \code{FALSE}).
 #' @param dpi Numeric; resolution of the exported images (default 300).
+#' @param bootstrap Logical; whether to estimate the standard errors
+#'   and percentile confidence intervals of all scalar parameters of
+#'   every file with \code{\link{lifeTable_bootstrap}} (default
+#'   \code{FALSE}). Each workbook then contains an extra worksheet
+#'   with the bootstrap results and the summary workbook \code{all.xlsx}
+#'   gains one \code{_SE} column per population parameter.
+#' @param B Integer; number of bootstrap replicates per file (only
+#'   used when \code{bootstrap = TRUE}). The TWOSEX-MSChart standard
+#'   is \code{100000} (the default).
+#' @param seed Integer; base seed of the bootstrap random number
+#'   generator (only used when \code{bootstrap = TRUE}); file
+#'   \code{p} is analysed with seed \code{seed + p}. \code{NULL} uses
+#'   the current R session state.
 #'
 #' @return A summary data frame with one row per successfully analysed
-#'   file (population parameters as columns); the attribute
-#'   \code{error_files} contains the names of the files that failed.
+#'   file (population parameters as columns, plus their bootstrap
+#'   standard errors as \code{_SE} columns when \code{bootstrap =
+#'   TRUE}); the attribute \code{error_files} contains the names of
+#'   the files that failed.
 #'
-#' @seealso \code{\link{read_life_table}}, \code{\link{lifeTable_calculate_all}},
-#'   \code{\link{plot_sxj}}, \code{\link{save_results}}
+#' @seealso \code{\link{lifeTable_read}}, \code{\link{lifeTable_calculate_all}},
+#'   \code{\link{lifeTable_bootstrap}}, \code{\link{lifeTable_plot}},
+#'   \code{\link{lifeTable_export}}
 #' @export
 #' @examples
-#' f <- system.file("extdata", "Example.csv", package = "insectecol")
+#' f <- system.file("extdata", "lifetable_example.csv", package = "insectecol")
 #' lifeTable_calculate(f, output_path = file.path(tempdir(), "insectecol-demo"))
 lifeTable_calculate <- function(path, output_path = NULL, plot = TRUE,
-                                keep_tiff = FALSE, dpi = 300) {
+                                keep_tiff = FALSE, dpi = 300,
+                                bootstrap = FALSE, B = 100000, seed = NULL) {
   path_type <- check_path_type(path)
   if (path_type == "folder") {
     file_path <- list.files(path, pattern = "\\.(csv)$", full.names = TRUE,
@@ -102,17 +119,34 @@ lifeTable_calculate <- function(path, output_path = NULL, plot = TRUE,
 
   for (p in 1:number) {
     tryCatch({
-      lt <- read_life_table(file_path[p])                 # read and validate
+      lt <- lifeTable_read(file_path[p])                 # read and validate
       results <- lifeTable_calculate_all(lt)                        # all indicators
-      plt <- if (plot) plot_sxj(lt, results$sxj, dpi = dpi) else NULL
-      save_results(lt, results, output_path, plot = plt,
+      if (bootstrap)
+        results$boot <- lifeTable_bootstrap(
+          lt, B = B, seed = if (is.null(seed)) NULL else seed + p)
+      plt <- if (plot) lifeTable_plot(lt, results$sxj, dpi = dpi) else NULL
+      lifeTable_export(lt, results, output_path, plot = plt,
                    keep_tiff = keep_tiff, dpi = dpi)
-      summary_df <- rbind(summary_df, data.frame(
+      row <- data.frame(
         File = lt$file_name, Cohort_size_N = results$N,
         Mean_fecundity_F = results$F, Net_reproductive_rate_R0 = results$R0,
         Finite_rate_of_increase_lambda = results$lambda,
         Intrinsic_rate_of_increase_r = results$r,
-        Mean_generation_time_T = results$T))
+        Mean_generation_time_T = results$T)
+      if (bootstrap) {
+        bs <- if (!is.null(results$boot)) results$boot$summary else NULL
+        for (nm in c("Mean_fecundity_F", "Net_reproductive_rate_R0",
+                     "Intrinsic_rate_of_increase_r",
+                     "Finite_rate_of_increase_lambda",
+                     "Mean_generation_time_T")) {
+          se_v <- if (is.null(bs)) NA_real_ else {
+            w <- bs$Boot_SE[bs$Parameter == nm]
+            if (length(w) == 1L) w else NA_real_
+          }
+          row[[paste0(nm, "_SE")]] <- se_v
+        }
+      }
+      summary_df <- rbind(summary_df, row)
       message(sprintf("[%d/%d] File [%s] completed", p, number, lt$file_name))
     }, error = function(e) {
       fname <- tools::file_path_sans_ext(basename(file_path[p]))

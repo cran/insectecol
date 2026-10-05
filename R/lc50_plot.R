@@ -83,18 +83,35 @@
 #'   crossing, the label is placed in one of the two free ones: above
 #'   the crossing when it sits left of the vertical reference line,
 #'   below it when it sits right, at a clearance of \code{lc_lab_dy}.
+#'   If a replicate error bar reaches into the label block, the block is
+#'   shifted vertically by the smallest amount that restores a clearance
+#'   of about one line height from the bar end, preferring the direction
+#'   that keeps it on its own side of the crossing. The extra x-axis
+#'   value always sits to the right of the vertical dashed line (it
+#'   moves to the left only when it would run off the right panel
+#'   edge); when the label block dips into the value's strip, the block
+#'   is raised clear of it instead.
+#'
+#' @section File names:
+#' Saved files are named after the data set plus suffixes for every
+#' non-default setting that changes the look (\code{_linear} for
+#' \code{shape = "linear"}, \code{_noband} for \code{ci = FALSE},
+#' \code{_nobar} for \code{error_bar = FALSE}, \code{_nolcCI} for
+#' \code{lc_ci = FALSE}, \code{_nochi} for \code{lc_p = FALSE}, and the
+#' selected method names), so plots saved to one folder can never
+#' overwrite each other.
 #'
 #' @return Named list of ggplot objects (invisibly).
-#' @seealso \code{\link{save_lc50}}, \code{\link{save_lc50_plot}}
+#' @seealso \code{\link{lc50_export}}, \code{\link{lc50_export_plot}}
 #' @export
 #' @examples
-#' f <- system.file("extdata", "bioassay.csv", package = "insectecol")
-#' res <- lc50_calculate(read_lc50(f))
-#' plots <- plot_lc50(res, save_path = tempdir())
-#' plots <- plot_lc50(res, shape = "linear", save_path = tempdir())  # original axis
-#' plots <- plot_lc50(res, ci = FALSE, error_bar = FALSE,
+#' f <- system.file("extdata", "lc50_example.csv", package = "insectecol")
+#' res <- lc50_calculate(lc50_read(f))
+#' plots <- lc50_plot(res, save_path = tempdir())
+#' plots <- lc50_plot(res, shape = "linear", save_path = tempdir())  # original axis
+#' plots <- lc50_plot(res, ci = FALSE, error_bar = FALSE,
 #'                    save_path = tempdir())                          # bare version
-plot_lc50 <- function(results, save_path = NULL, font = "TNM",
+lc50_plot <- function(results, save_path = NULL, font = "TNM",
                       width = 7, height = 6, dpi = 300, unit = NULL,
                       shape = c("sigmoid", "linear"),
                       ci = TRUE, ci_level = 0.95,
@@ -108,6 +125,12 @@ plot_lc50 <- function(results, save_path = NULL, font = "TNM",
   if (is.null(unit)) unit <- "mg/L"
 
   plot_list <- list()
+
+  # suffixes for non-default display options: without them the files of
+  # different option settings would share one name and overwrite each
+  # other (shape gets its own "_linear" tag further down)
+  otag <- paste0(if (!ci) "_noband", if (!error_bar) "_nobar",
+                 if (!lc_ci) "_nolcCI", if (!lc_p) "_nochi")
 
   for (nm in names(results$results)) {
     # when several methods are stored, the file names get a method suffix
@@ -123,7 +146,7 @@ plot_lc50 <- function(results, save_path = NULL, font = "TNM",
                         fig_w = width, fig_h = height)
     if (is.null(gp)) next
     attr(gp, "lc50_name") <- paste0(
-      if (shape == "sigmoid") nm else paste0(nm, "_linear"), mtag)
+      if (shape == "sigmoid") nm else paste0(nm, "_linear"), otag, mtag)
     plot_list[[nm]] <- gp
     if (!is.null(save_path)) {
       lc50_ggsave(file.path(save_path,
@@ -139,10 +162,10 @@ plot_lc50 <- function(results, save_path = NULL, font = "TNM",
 
 #' Save LC50 Plots
 #'
-#' Saves one plot or a list of plots from \code{\link{plot_lc50}}, like
+#' Saves one plot or a list of plots from \code{\link{lc50_plot}}, like
 #' \code{ggsave(path, plot, device = "tiff", width = 12, height = 8,
 #' dpi = 300, units = "cm", bg = "white")} but with the dpi handling of
-#' \code{plot_lc50} applied. The same plot object can be written at any
+#' \code{lc50_plot} applied. The same plot object can be written at any
 #' dpi without being re-created.
 #'
 #' @param plot A ggplot or a (named) list of ggplots.
@@ -155,13 +178,13 @@ plot_lc50 <- function(results, save_path = NULL, font = "TNM",
 #' @param ... Further arguments passed on to \code{ggsave}.
 #'
 #' @return Path(s) of the written file(s), invisibly.
-#' @seealso \code{\link{plot_lc50}}, \code{\link{save_lc50}}
+#' @seealso \code{\link{lc50_plot}}, \code{\link{lc50_export}}
 #' @export
 #' @examples
-#' f <- system.file("extdata", "bioassay.csv", package = "insectecol")
-#' plots <- plot_lc50(lc50_calculate(read_lc50(f)))
-#' save_lc50_plot(plots$bioassay, file.path(tempdir(), "LC50_demo.tiff"))
-save_lc50_plot <- function(plot, path = NULL, device = "tiff",
+#' f <- system.file("extdata", "lc50_example.csv", package = "insectecol")
+#' plots <- lc50_plot(lc50_calculate(lc50_read(f)))
+#' lc50_export_plot(plots$bioassay, file.path(tempdir(), "LC50_demo.tiff"))
+lc50_export_plot <- function(plot, path = NULL, device = "tiff",
                            width = 12, height = 8, dpi = 300,
                            units = "cm", bg = "white", ...) {
   if (is.null(path)) {
@@ -178,7 +201,7 @@ save_lc50_plot <- function(plot, path = NULL, device = "tiff",
     if (is.null(nms) || any(!nzchar(nms)))
       nms <- paste0("Plot", seq_along(plot))
     out <- vapply(seq_along(plot), function(i) {
-      save_lc50_plot(plot[[i]],
+      lc50_export_plot(plot[[i]],
                      file.path(path, paste0("LC50_", nms[i], ".", ext)),
                      device = device, width = width, height = height,
                      dpi = dpi, units = units, bg = bg, ...)
@@ -565,6 +588,7 @@ lc50_plot_one <- function(nm, one, font, unit = NULL,
   # of the block from the crossing".
   x_mid <- (x_lo + x_hi) / 2
   x_lab_w <- x_hi - x_lo
+  bar_w <- 0.018 * (x_hi - x_lo)   # cap width of the error bars
   lc_lab_pt <- 25                    # LC label font, in points on the device
   lc_lab_size <- lc_lab_pt / ggplot2::.pt
   n_lab <- length(lc_lines)
@@ -630,14 +654,131 @@ lc50_plot_one <- function(nm, one, font, unit = NULL,
     lab_bottom <- lab_top - lab_h
   }
 
-  # NEW: labels moved into the panel hug their dashed line by default
-  # and flip to the other side only when they would not fit between the
-  # line and the panel edge, or (x) when the LC label already occupies
-  # that corner; the width estimate is one digit per character
+  # Text of the extra x tick value; its width is also needed by the
+  # obstacle logic right below (the estimate is one digit per character)
   x_val_txt <- sprintf("%.3g", lc_real)
   x_val_w <- 0.045 * nchar(x_val_txt) + 0.02
-  x_val_left <- (x_hi - lc_x) < x_val_w * (x_hi - x_lo) ||
-    (lc_x < x_mid && lab_bottom < 0.21)
+
+  # Geometry shared by the error-bar avoidance and the value strip below.
+  # lab_half is derived from nominal font metrics and runs ~20% wider
+  # than the rendered text, so the collision logic works with lab_half_c
+  eb_ok <- pts[is.finite(pts[["lo"]]), , drop = FALSE]  # none w/o error bars
+  pad <- 0.9 * lab_pitch       # half text height + wanted air, in y units
+  lab_half_c <- 0.8 * lab_half
+  bx_lo <- x_lab - lab_half_c
+  bx_hi <- x_lab + lab_half_c
+  hit <- eb_ok[eb_ok[["Conc"]] + bar_w / 2 >= bx_lo &
+               eb_ok[["Conc"]] - bar_w / 2 <= bx_hi, , drop = FALSE]
+  # The inside x value owns the bottom strip right of the dashed line
+  # (top edge ~0.21) and is anchored there - when they conflict, the
+  # label block yields, never the number (see x_val_left below)
+  val_obs <- x_lab_inside && bx_hi > lc_x &&
+    bx_lo < lc_x + x_val_w * (x_hi - x_lo)
+
+  # NEW: with large error bars one can reach into the label block. Every
+  # bar whose horizontal extent (cap width included) overlaps the block's
+  # x range forbids a vertical band around [lo, hi], widened by half the
+  # visual height of the text block plus the wanted air (one line pitch
+  # in total); the value strip is one more such band. If the block
+  # intersects a band, it is shifted vertically by the smallest amount
+  # that lands it in a free gap, preferring the direction that keeps it
+  # on its own side of the crossing (above the crossing when it sits
+  # left of the line, below it when it sits right).
+  if (nrow(hit) > 0) {
+    band_lo <- hit[["lo"]] - pad
+    band_hi <- hit[["hi"]] + pad
+    if (val_obs) {
+      band_lo <- c(band_lo, 0)
+      band_hi <- c(band_hi, 0.21)
+    }
+    collide <- function(b, lo, hi) any(hi > b & lo < b + lab_h)
+    if (collide(lab_bottom, band_lo, band_hi)) {
+      prefer_up <- lab_bottom >= lc_y
+      cands <- function(lo, hi) {
+        cb <- c(hi, lo - lab_h)  # on top of / under every band
+        keep <- cb >= 0.5 * lab_pitch & cb + lab_h <= 1 - 0.5 * lab_pitch
+        cb <- cb[keep]
+        cb[!vapply(cb, collide, logical(1), lo, hi)]
+      }
+      cand_b <- cands(band_lo, band_hi)
+      if (length(cand_b) > 0) {
+        d <- abs(cand_b - lab_bottom)
+        # equal distances: keep the move along the block's own side
+        if (prefer_up) d[cand_b < lab_bottom] <- d[cand_b < lab_bottom] + 1e-9
+        else d[cand_b >= lab_bottom] <- d[cand_b >= lab_bottom] + 1e-9
+        lab_bottom <- cand_b[which.min(d)]
+        lab_top <- lab_bottom + lab_h
+      }
+    }
+  }
+
+  # Enforce the value strip also when no error bar is in the way (e.g. a
+  # small figure, where the default block position already dips into it):
+  # raise the block by the smallest amount that clears the strip,
+  # provided it then neither crosses the LC crossing nor lands on an
+  # error bar; otherwise the rare crowding is accepted
+  if (val_obs && lab_bottom < 0.21) {
+    newb <- 0.21
+    ok <- newb + lab_h <= min(lc_y, 1 - 0.5 * lab_pitch)
+    if (ok && nrow(hit) > 0)
+      ok <- !any(hit[["hi"]] + pad > newb &
+                 hit[["lo"]] - pad < newb + lab_h)
+    if (ok) {
+      lab_bottom <- newb
+      lab_top <- newb + lab_h
+    }
+  }
+
+  # Last resort when every vertical move is blocked (bars above and
+  # below, e.g. wide CIs on neighbouring concentrations): search a small
+  # grid of positions on the block's own side of the dashed line for the
+  # nearest spot free of all error bars, of the value strip and of the
+  # fitted curve with its band; if the panel offers none, the original
+  # position is kept
+  if ((nrow(hit) > 0 || val_obs) &&
+      (any(hit[["hi"]] + pad > lab_bottom &
+           hit[["lo"]] - pad < lab_bottom + lab_h) ||
+       (val_obs && lab_bottom < 0.21))) {
+    zx1 <- lc_x + x_val_w * (x_hi - x_lo)
+    free <- function(bx0, bx1, b) {
+      if (b < 0 && b + lab_h > 1) return(FALSE)
+      if (val_obs && bx1 > lc_x && bx0 < zx1 && b < 0.21) return(FALSE)
+      if (any(hit[["hi"]] + pad > b & hit[["lo"]] - pad < b + lab_h &
+              hit[["Conc"]] + bar_w / 2 > bx0 &
+              hit[["Conc"]] - bar_w / 2 < bx1)) return(FALSE)
+      # the fitted curve with its confidence band
+      inb <- curve[["Conc"]] > bx0 & curve[["Conc"]] < bx1
+      if (any(inb) && b + lab_h > min(band[["lo"]][inb]) &&
+          b < max(band[["hi"]][inb])) return(FALSE)
+      TRUE
+    }
+    xs <- if (lab_right)
+      seq(max(x_lab, lc_x + lab_half_c + 0.02 * (x_hi - x_lo)),
+          x_hi - lab_half_c, length.out = 10)
+    else
+      seq(x_lo + lab_half_c,
+          min(x_lab, lc_x - lab_half_c - 0.02 * (x_hi - x_lo)),
+          length.out = 10)
+    ys <- seq(0.5 * lab_pitch, 1 - 0.5 * lab_pitch - lab_h, length.out = 16)
+    best <- NA_real_; best_d <- Inf
+    for (x2 in xs) {
+      for (b2 in ys) {
+        if (free(x2 - lab_half_c, x2 + lab_half_c, b2)) {
+          d <- 2 * abs(x2 - x_lab) / (x_hi - x_lo) + abs(b2 - lab_bottom)
+          if (d < best_d) { best_d <- d; best <- c(x2, b2) }
+        }
+      }
+    }
+    if (!is.na(best[1])) {
+      x_lab <- best[1]
+      lab_bottom <- best[2]
+      lab_top <- lab_bottom + lab_h
+    }
+  }
+
+  # The inside x value is anchored to the RIGHT of the dashed line; it
+  # moves to the left only when it would run off the right panel edge
+  x_val_left <- (x_hi - lc_x) < x_val_w * (x_hi - x_lo)
   y_val_below <- (1 - lc_y) < 0.16
 
   # Sizes of the hand-drawn axis elements
@@ -648,7 +789,6 @@ lc50_plot_one <- function(nm, one, font, unit = NULL,
   tick_lab_gap <- 0.15
   axis_text_col <- "grey10"
   axis_lab_size <- 0.8 * base_size / ggplot2::.pt
-  bar_w <- 0.018 * (x_hi - x_lo)   # cap width of the error bars
 
   # ggplot2 draws layers in the order they are added (later = on top), so
   # the confidence band goes in first and the observed error bars and
