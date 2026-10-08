@@ -10,6 +10,7 @@ lc50_analyze(
   tested = NULL,
   dead = NULL,
   name = "bioassay",
+  path = NULL,
   lc = 0.5,
   method = "traditional",
   plot = FALSE,
@@ -31,7 +32,10 @@ lc50_analyze(
   lc_lab_gap = 0.35,
   lc_lab_gap_right = 0.1,
   lc_lab_dy = 0.1,
-  lc_lab_lh = 1.05
+  lc_lab_lh = 1.05,
+  export = FALSE,
+  export_path = NULL,
+  export_file = NULL
 )
 }
 \arguments{
@@ -52,6 +56,10 @@ saved plot file names when \code{d} is a single data frame or the
 vectors are used (default \code{"bioassay"}); ignored for a named
 list input.}
 
+\item{path}{Path to a csv file (or a folder with a single csv) in
+the LC50 input format; read with \code{\link{lc50_read}} and used
+instead of \code{d}/\code{concentration}.}
+
 \item{lc}{Numeric; the lethal proportion (default 0.5 = LC50,
 e.g. 0.9 = LC90), passed to \code{\link{lc50_calculate}}.}
 
@@ -60,14 +68,13 @@ e.g. 0.9 = LC90), passed to \code{\link{lc50_calculate}}.}
 \code{\link{lc50_calculate}}.}
 
 \item{plot}{Logical; whether to build the regression plot(s)
-(default \code{FALSE}). The ggplot objects are only returned -
-not printed, not saved unless \code{plot_file} is supplied.}
+(default \code{FALSE}). The ggplot objects are also returned.}
 
-\item{plot_file}{Optional png path: when supplied together with
-\code{plot = TRUE} the figure(s) are written as png via
-\code{\link{lc50_export_plot}} - one data set gives exactly this
-file, several data sets write \code{LC50_<name>.png} files into
-this folder. When \code{NULL} nothing is written.}
+\item{plot_file}{Optional png path, used with \code{plot = TRUE}. A
+path with an extension is the file itself (one data set); a path
+without one is a folder, created when missing, and the figure(s)
+are written inside it as \code{LC50_<name>.png};
+\code{NULL} (default) writes them to the working directory.}
 
 \item{plot_width, plot_height, plot_units, plot_res}{Physical size and
 resolution of the exported png (only used when \code{plot_file} is
@@ -80,6 +87,21 @@ Ignored when \code{plot = FALSE}.}
 \item{font, unit, shape, ci, ci_level, error_bar, move_thres, lc_ci, lc_p, lc_lab_gap, lc_lab_gap_right, lc_lab_dy, lc_lab_lh}{Plot settings, passed to the internal plot engine exactly as in
 \code{\link{lc50_plot}} (\code{unit = NULL} means \code{"mg/L"},
 \code{unit = ""} shows no unit).}
+
+\item{export}{Logical; write the results workbook to disk?
+Default \code{FALSE}.}
+
+\item{export_path}{Output directory for the results workbook;
+created when missing. \code{NULL} (default) means
+\code{\link{getwd}}.}
+
+\item{export_file}{File name of the results workbook;
+\code{NULL} (default) means \code{<name>_results.xlsx}.
+Relative paths are resolved against \code{export_path}; absolute
+paths are used as-is. The parent directory is created when it
+does not exist. The
+written path is returned invisibly in the \code{export_file}
+component of the result.}
 }
 \value{
 A list with elements \code{data} (the standardised data
@@ -87,8 +109,10 @@ A list with elements \code{data} (the standardised data
   returned by \code{\link{lc50_calculate}}: \code{results},
   \code{summary_df}, \code{lc}), \code{plot} (a named list of
   ggplot objects when \code{plot = TRUE}, otherwise \code{NULL})
-  and \code{plot_file} (the written path(s) when \code{plot_file}
-  was supplied, otherwise \code{NULL}).
+  and \code{plot_file} (the written path(s) when \code{plot = TRUE},
+  otherwise \code{NULL}) and \code{export_file} (the
+  workbook path when \code{export = TRUE}, otherwise
+  \code{NULL}).
 }
 \description{
 Non-interactive, fully parameter-driven entry point for the LC
@@ -118,8 +142,29 @@ out2$results$summary_df
 out3 <- lc50_analyze(concentration = conc, tested = n, dead = dead,
                      name = "trial1", lc = 0.9, method = "improved",
                      plot = TRUE, plot_method = "improved",
-                     shape = "linear")
-out3$plot$trial1        # ggplot object: print(), customise or export
+                     shape = "linear",
+                     plot_file = file.path(tempdir(), "LC50_linear.png"))
+invisible(out3$plot$trial1)  # ggplot object: print(), customise, export
+out3$plot_file          # the png that was written
+
+## --- export: figure (png) and results workbook (xlsx) to disk ---
+## plot_file writes the regression png; export = TRUE writes the
+## workbook with the LC values, CI and the per-group details.
+## export_file accepts an absolute path (the parent directory is
+## created when missing); a relative path would be resolved against
+## export_path (default getwd()). Writing the workbook takes a few
+## seconds, so this last part is not run by default.
+\donttest{
+out4 <- lc50_analyze(concentration = conc, tested = n, dead = dead,
+                     name = "trial1", method = "all",
+                     plot = TRUE, plot_method = "probit",
+                     plot_file = file.path(tempdir(), "trial1.png"),
+                     export = TRUE,
+                     export_file = file.path(tempdir(),
+                                             "trial1_results.xlsx"))
+out4$plot_file        # path of the written png
+out4$export_file      # path of the written workbook (LC table + details)
+}
 }
 \seealso{
 \code{\link{lc50_read}}, \code{\link{lc50_calculate}},

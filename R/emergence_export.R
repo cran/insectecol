@@ -18,12 +18,10 @@
 #'   cumulative-development table. Default TRUE.
 #' @param ... Further arguments passed to \code{write.csv} (CSV mode).
 #' @examples
-#' \donttest{
 #' f <- system.file("extdata", "emergence_example.csv",
 #'                  package = "insectecol")
 #' fit <- emergence_calc(emergence_read(f), survey_date = "2026-03-20")
 #' emergence_export(fit, tempfile(fileext = ".csv"))
-#' }
 #' @export
 emergence_export <- function(x, file = "emergence_results.csv",
                              include_stages = TRUE, ...) {
@@ -78,13 +76,11 @@ emergence_export <- function(x, file = "emergence_results.csv",
 #'   \code{\link{plot.emergence}}.
 #' @return Invisibly, \code{file}.
 #' @examples
-#' \donttest{
 #' f <- system.file("extdata", "emergence_example.csv",
 #'                  package = "insectecol")
 #' fit <- emergence_calc(emergence_read(f), survey_date = "2026-03-20",
 #'                       pre_ovip = 3, egg_days = 10)
 #' emergence_export_plot(fit, tempfile(fileext = ".png"))
-#' }
 #' @export
 emergence_export_plot <- function(x, file = "emergence_plot.png",
                                   show_hatch = TRUE,
@@ -103,15 +99,22 @@ emergence_export_plot <- function(x, file = "emergence_plot.png",
   if (!is.null(xlab))   pargs$xlab   <- xlab
   if (!is.null(ylab))   pargs$ylab   <- ylab
   if (!is.null(family)) pargs$family <- family
+  ## the device follows the file extension: png/tiff/jpeg are written
+  ## by 'ragg' (per-glyph font fallback) when available, otherwise by
+  ## the matching grDevices device; any other extension falls back to
+  ## the png device (previous behaviour)
+  ext <- tolower(tools::file_ext(file))
+  dev <- pkg_fallback_device(ext)
+  if (is.null(dev))
+    dev <- switch(ext,
+                  tiff = , tif  = grDevices::tiff,
+                  jpeg = , jpg  = grDevices::jpeg,
+                  grDevices::png)
   ## text sizes scale with res on a fixed-pixel canvas; compensate for
   ## units = "px" so that res keeps the 150-dpi composition
   pps <- if (units == "px") 12 * 150 / res else 12
-  if (requireNamespace("ragg", quietly = TRUE))
-    ragg::agg_png(file, width = width, height = height, units = units,
-                  res = res, pointsize = pps)
-  else
-    grDevices::png(file, width = width, height = height, units = units,
-                   res = res, pointsize = pps)
+  dev(file, width = width, height = height, units = units,
+      res = res, pointsize = pps)
   tryCatch(do.call(plot, pargs),
            finally = while (!is.null(grDevices::dev.list()))
              grDevices::dev.off())

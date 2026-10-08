@@ -35,6 +35,9 @@ emergence_analyze(
   plot_height = 6,
   plot_units = c("in", "cm", "px"),
   plot_res = 150,
+  export = FALSE,
+  export_path = NULL,
+  export_file = NULL,
   ...
 )
 }
@@ -81,15 +84,20 @@ used). Counted from female eclosion to egg deposition.}
 \code{\link{emergence_read}} (only used when \code{path} is
 supplied).}
 
-\item{plot}{Logical; whether to draw the projection (default
-\code{FALSE}).}
+\item{plot}{Logical; whether to write the projection figure to
+disk (default \code{FALSE}). With \code{plot = TRUE} the figure
+is always written, to \code{plot_file} when supplied, otherwise
+to the working directory under \code{emergence_plot.png}.}
 
-\item{plot_file}{Optional png path: when supplied together with
-\code{plot = TRUE} the figure is written to this file (same
-machinery as \code{\link{emergence_export_plot}}); when
-\code{NULL} the plot is drawn on the current device (fully
-customisable afterwards by calling \code{plot()} on the
-returned \code{fit}).}
+\item{plot_file}{Optional path of the exported figure, used with
+\code{plot = TRUE}: a path with an extension is the file itself
+(the format follows the extension --- png, tiff and jpeg are
+supported), a path without one is a folder, created when
+missing, and the figure is written inside it; \code{NULL}
+(default) means the working directory under
+\code{emergence_plot.png}. The path written is returned as
+\code{plot_file}. The projection can still be drawn on screen
+at any time with \code{plot(fit)} on the returned \code{fit}.}
 
 \item{show_hatch}{Plot option, see \code{\link{plot.emergence}}.}
 
@@ -103,10 +111,25 @@ Roman on 'Windows'; Chinese characters are rendered through the
 device's font fallback, i.e. SimSun on Chinese 'Windows').}
 
 \item{plot_width, plot_height, plot_units, plot_res}{Physical size
-and resolution of the exported png (only used when
-\code{plot_file} is supplied), same semantics as in
+and resolution of the exported figure (only used with
+\code{plot = TRUE}), same semantics as in
 \code{\link{gdd_analyze}}: the composition is identical at
 every resolution, \code{plot_res} only adds pixels.}
+
+\item{export}{Logical; write the results document to disk?
+Default \code{FALSE}.}
+
+\item{export_path}{Output directory for the results document;
+created when missing. \code{NULL} (default) means
+\code{\link{getwd}}.}
+
+\item{export_file}{File name of the results document
+(\code{.xlsx} or \code{.csv}); \code{NULL} (default) means
+\code{emergence_results.xlsx}. Relative paths are resolved
+against \code{export_path}; absolute paths are used as-is. The
+parent directory is created when it does not exist. The
+written path is returned
+invisibly in the \code{export_file} component of the result.}
 
 \item{...}{Further arguments passed to \code{\link{emergence_calc}}
 (reserved for future options; keeps user code forward
@@ -121,8 +144,10 @@ A list with components:
     development), \code{fit$interpolate} (a closure for
     arbitrary quantiles); print / summary / plot / predict S3
     methods are available}
-  \item{plot_file}{the png path when \code{plot_file} was
-    supplied, otherwise \code{NULL}}
+  \item{plot_file}{the path of the written figure when
+    \code{plot = TRUE}, otherwise \code{NULL}}
+  \item{export_file}{the results-document path when
+    \code{export = TRUE}, otherwise \code{NULL}}
 }
 \description{
 Non-interactive, fully parameter-driven entry point for the
@@ -137,11 +162,11 @@ column vectors (\code{stage = d$stage, count = d$n, days =
 d$days}), a whole data frame, or a csv/xlsx file / folder read
 via \code{\link{emergence_read}} ---, (2) computes the
 cumulative development and the interpolated quantile dates via
-\code{\link{emergence_calc}} and (3) optionally draws the
-projection with \code{\link{plot.emergence}}. Larval hatch dates
+\code{\link{emergence_calc}} and (3) optionally writes the
+projection figure to disk (\code{plot_file}, or the working
+directory under a default name). Larval hatch dates
 are projected as well when \code{pre_ovip} / \code{egg_days}
-are supplied. Nothing is written to disk unless \code{plot_file}
-is supplied; tabular export is handled separately by
+are supplied. Tabular export is handled separately by
 \code{\link{emergence_export}}.
 }
 \examples{
@@ -162,15 +187,24 @@ out2 <- emergence_analyze(data = d, survey_date = "2026-03-20")
 ## --- way 3: let the function read the file ---
 out3 <- emergence_analyze(path = f, survey_date = "2026-03-20")
 
-## --- hatch projection + png export + custom labels ---
+## --- hatch projection + png export + results workbook ---
+## plot_file writes the projection png; export = TRUE writes the
+## results workbook (quantile dates + cumulative development table).
+## export_file accepts an absolute path (the parent directory is
+## created when missing), so export_path is not needed here.
 ## plot_title / plot_xlab / plot_ylab accept custom labels; Chinese
 ## labels are rendered through the device's font fallback (SimSun
 ## on Chinese Windows)
 out4 <- emergence_analyze(path = f, survey_date = "2026-03-20",
                           pre_ovip = 3, egg_days = 10,
                           plot = TRUE,
-                          plot_file = tempfile(fileext = ".png"))
+                          plot_file = file.path(tempdir(), "emergence.png"),
+                          export = TRUE,
+                          export_file = file.path(tempdir(),
+                                                  "emergence_results.xlsx"))
 out4$fit$predictions
+out4$plot_file            # path of the written png
+out4$export_file          # path of the written workbook
 }
 \seealso{
 \code{\link{emergence_read}},

@@ -110,7 +110,12 @@ reference line. Larger moves the whole block further from it.}
 
 \item{lc_lab_lh}{Line spacing of the LC label in multiples of its
 font size (1 = single spacing, default 1.05). The lines are spaced
-evenly whichever of them \code{lc_ci} / \code{lc_p} switches on.}
+evenly whichever of them \code{lc_ci} / \code{lc_p} switches on.
+The spacing is measured in the nominal size the label was
+calibrated at (25 pt on the 300-dpi reference device), while the
+text itself renders at a third of that, so the default leaves a
+visibly loose line pitch that also clears the sub- and superscripts
+of the plotmath lines (\code{LC}[50], \code{chi^2}).}
 }
 \value{
 Named list of ggplot objects (invisibly).

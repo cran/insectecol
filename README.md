@@ -439,6 +439,68 @@ and xlsx files are read via `readxl`.
 
 ## Updates
 
+### 1.1.2 (CRAN submission round)
+
+**Figures and fonts**
+
+- In a label that mixes the two scripts, every character now keeps its
+  own font: digits, symbols and Latin words stay in Times New Roman and
+  only the Chinese characters are set in the system CJK font (SimSun on
+  Windows, Songti on macOS). A label used to be set in one font as a
+  whole, so "Concentration (mg/L)" written with a Chinese unit came out
+  entirely in the CJK font, Latin letters included.
+- Text sizes are true typographic points on every device and at every
+  dpi, so a label has the same physical size in a 300 dpi png and in a
+  pdf (it used to grow with the dpi).
+- Chinese labels are written to vector devices (pdf, svg) as well: the
+  TrueType font is embedded, and the family is registered with the
+  classic font databases, which removes the "invalid font type" and
+  "font family not found" failures when a figure is printed to the
+  default device.
+- The LC label of `lc50_plot()` falls back to plain text when the unit
+  contains Chinese, so that the unit is set in the CJK font like every
+  other label. The percentage is then written `LC50` instead of with a
+  subscript, because plotmath can only draw a whole expression with one
+  font.
+- `plot = TRUE` in `lifeTable_analyze()`, `lc50_analyze()`,
+  `emergence_analyze()` and `gdd_analyze()` now
+  always writes the figure: with no `plot_file` it goes to the working
+  directory under a default name (`<file_name>_plot.png`,
+  `LC50_<name>.png`, `emergence_plot.png` or `gdd_plot.png`), and a `plot_file`
+  without an extension is
+  treated as a folder - created when missing - with the figure written
+  inside it. Previously the figure was only returned and `ggsave()`
+  stopped on a folder path.
+- The emergence and degree-day figure devices follow the `plot_file`
+  extension (png/tiff/jpeg written by `ragg` when available).
+
+**Examples**
+
+- `\dontrun` replaced by `\donttest` throughout: every example can be
+  run by the user, and only the parts that write a workbook - which
+  take well over five seconds - are skipped by `R CMD check`.
+
+**Internal changes**
+
+- Column assignment in the age-stage life table now follows the
+  position of each duration in the data row instead of assuming that
+  the last entry is the adult stage: individuals that died before the
+  adult stage and were sexed F/M (trailing blanks) and rows with a
+  skipped stage (blank cell, data in later columns) are no longer
+  misplaced into the Female/Male columns of s_xj and e_xj.
+- Figures exported by `lifeTable_analyze(plot = TRUE)` are now written
+  through the same device machinery as the other functions: bitmaps go
+  through `ragg` (per-glyph font fallback) and vector formats through
+  `showtext`, so a `plot_file` pointing at a pdf or svg works as well.
+- Device font registration no longer calls the Windows-only
+  `windowsFonts()`, and the bundled-font fallback registers its metrics
+  with the vector devices too - the package builds and checks cleanly on
+  Linux and macOS.
+- `systemfonts` added to Imports (the package `ragg` draws and measures
+  text with); it supplies the per-character widths used to split a
+  mixed label into runs.
+- Bumped the version to 1.1.2.
+
 ### 1.1.1 (CRAN submission round)
 
 Version 1.1.1 adds the emergence-period module, standardises the
